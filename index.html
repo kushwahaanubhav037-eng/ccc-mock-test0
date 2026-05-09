@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <title>CCC Student Portal</title>
+    <style>
+        :root { --p: #0ea5e9; --s: #0284c7; --bg: #f0f9ff; }
+        body { font-family: 'Poppins', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .box { max-width: 700px; width: 100%; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        .login-input { width: 100%; padding: 15px; margin: 10px 0; border: 2px solid #e0f2fe; border-radius: 12px; }
+        .opt { background: #f8fafc; border: 2px solid #e2e8f0; padding: 15px; margin: 10px 0; border-radius: 12px; cursor: pointer; transition: 0.2s; }
+        .opt:hover { border-color: var(--p); background: #f0f9ff; }
+        .selected { background: var(--p) !important; color: white; border-color: var(--p); }
+        .correct { color: #10b981; font-weight: bold; }
+        .wrong { color: #ef4444; font-weight: bold; }
+        #quiz, #result { display: none; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div id="login">
+            <h2 style="text-align:center; color:var(--p);">Student Exam Login</h2>
+            <input type="text" id="sName" class="login-input" placeholder="Enter Full Name">
+            <input type="text" id="sPhone" class="login-input" placeholder="Enter Phone Number">
+            <button onclick="startTest()" style="width:100%; padding:15px; background:var(--p); color:white; border:none; border-radius:12px; cursor:pointer;">Start Test Now</button>
+        </div>
+
+        <div id="quiz">
+            <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                <span id="timer">Time: 10:00</span>
+                <span id="qCount"></span>
+            </div>
+            <h3 id="questionBox" style="margin-top:30px;"></h3>
+            <div id="optionsBox"></div>
+            <button onclick="nextQ()" id="nextBtn" style="margin-top:20px; padding:10px 30px; background:var(--p); color:white; border:none; border-radius:8px; cursor:pointer;">Next</button>
+        </div>
+
+        <div id="result">
+            <h2 style="text-align:center;">Test Result Analysis</h2>
+            <div id="scoreBoard" style="text-align:center; font-size:1.5rem; font-weight:bold; color:var(--p);"></div>
+            <p id="timeInfo" style="text-align:center;"></p>
+            <hr>
+            <div id="review"></div>
+        </div>
+    </div>
+
+    <script>
+        let qs = JSON.parse(localStorage.getItem('ccc_qs')) || [];
+        let cur = 0, score = 0, userAns = [], stuData = {}, startTime, timer;
+
+        function startTest() {
+            const name = document.getElementById('sName').value;
+            const phone = document.getElementById('sPhone').value;
+            if(!name || !phone) return alert("Fill details!");
+            stuData = { name, phone, loginTime: new Date().toLocaleString() };
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('quiz').style.display = 'block';
+            startTime = Date.now();
+            loadQ(); startTimer();
+        }
+
+        function loadQ() {
+            if(cur >= qs.length) return endTest();
+            const q = qs[cur];
+            document.getElementById('qCount').innerText = `Q ${cur+1}/${qs.length}`;
+            document.getElementById('questionBox').innerText = q.q;
+            const box = document.getElementById('optionsBox');
+            box.innerHTML = "";
+            ['A','B','C','D'].forEach(o => {
+                const d = document.createElement('div');
+                d.className = 'opt'; d.innerText = `${o}: ${q[o.toLowerCase()] || q['op'+o]}`;
+                d.onclick = () => { document.querySelectorAll('.opt').forEach(e=>e.classList.remove('selected')); d.classList.add('selected'); userAns[cur] = o; };
+                box.appendChild(d);
+            });
+        }
+
+        function nextQ() { if(!userAns[cur]) return alert("Select answer!"); cur++; loadQ(); }
+
+        function endTest() {
+            clearInterval(timer);
+            const duration = Math.floor((Date.now() - startTime)/1000);
+            const res = { ...stuData, score: 0, duration: `${Math.floor(duration/60)}m ${duration%60}s`, date: new Date().toLocaleString() };
+            
+            let html = "";
+            qs.forEach((q, i) => {
+                const isCorrect = userAns[i] === q.ans;
+                if(isCorrect) res.score++;
+                html += `<div style="margin-bottom:15px; padding:10px; border-bottom:1px solid #eee;">
+                    <b>Q${i+1}: ${q.q}</b><br>
+                    Your: <span class="${isCorrect?'correct':'wrong'}">${userAns[i]}</span> | Correct: <span class="correct">${q.ans}</span>
+                </div>`;
+            });
+            
+            // Save to Tracker
+            let logs = JSON.parse(localStorage.getItem('ccc_logs')) || [];
+            res.scoreStr = `${res.score}/${qs.length}`;
+            logs.push(res);
+            localStorage.setItem('ccc_logs', JSON.stringify(logs));
+
+            document.getElementById('quiz').style.display = 'none';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('scoreBoard').innerText = `Your Score: ${res.scoreStr}`;
+            document.getElementById('timeInfo').innerText = `Time Taken: ${res.duration}`;
+            document.getElementById('review').innerHTML = html;
+        }
+
+        function startTimer() {
+            let left = 600;
+            timer = setInterval(() => {
+                let m = Math.floor(left/60), s = left%60;
+                document.getElementById('timer').innerText = `Time: ${m}:${s<10?'0':''}${s}`;
+                if(left-- <= 0) endTest();
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
